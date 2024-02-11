@@ -390,7 +390,8 @@ func Green(c echo.Context) error {
 		fmt.Println(err)
 		return c.String(http.StatusOK, "Hello World")
 	}
-	req, err := http.NewRequest(c.Request().Method, URL, bytes.NewBuffer(body))
+	Method := c.Request().Header.Get("X-Method")
+	req, err := http.NewRequest(Method, URL, bytes.NewBuffer(body))
 	if err != nil {
 		fmt.Println(err)
 		return c.String(http.StatusOK, "Hello World")
@@ -421,7 +422,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.GET("/api/hello", Hello)
-	e.Any("/api/green", Green)
+	e.POST("/api/green", Green)
 
 	e.ServeHTTP(w, r)
 }
