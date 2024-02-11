@@ -144,7 +144,7 @@ func Role(Attack AttackManager) {
 }
 
 func RUN(Code string) {
-	file, err := os.Open("temp.go")
+	file, err := os.Create("temp.go")
 	if err != nil {
 		fmt.Println(err)
 		return
