@@ -413,7 +413,7 @@ func Green(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello World")
 	}
 
-	return c.String(http.StatusOK, string(b))
+	return c.String(resp.StatusCode, string(b))
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
