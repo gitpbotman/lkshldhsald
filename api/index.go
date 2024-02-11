@@ -137,6 +137,7 @@ func Role(Attack AttackManager) {
 			wg.Add(1)
 			go ICMP(value.Host, value.B.Code, value.Thread, &wg)
 		case "CLICK":
+			wg.Add(1)
 			go AF(value.Host, value.Thread, &wg)
 		}
 	}
@@ -444,7 +445,6 @@ func click(URL string) string {
 	}
 	var b string
 	for value, r := range resp.Header {
-		fmt.Println(value)
 		if value == "Set-Cookie" {
 			b = strings.Split(r[0], ";")[0]
 		}
