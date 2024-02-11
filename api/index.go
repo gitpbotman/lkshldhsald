@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	crypto_rand "crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -383,46 +382,12 @@ func Hello(c echo.Context) error {
 	return c.String(http.StatusOK, "Attacked")
 }
 
-func Green(c echo.Context) error {
-	URL := c.Request().Header.Get("X-P")
-	body, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		fmt.Println(err)
-		return c.String(http.StatusOK, "Hello World")
-	}
-	Method := c.Request().Header.Get("X-Method")
-	req, err := http.NewRequest(Method, URL, bytes.NewBuffer(body))
-	if err != nil {
-		fmt.Println(err)
-		return c.String(http.StatusOK, "Hello World")
-	}
-	for key, values := range c.Request().Header {
-		for _, value := range values {
-			req.Header.Set(key, value)
-		}
-	}
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return c.String(http.StatusOK, "Hello World")
-	}
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return c.String(http.StatusOK, "Hello World")
-	}
-
-	return c.String(resp.StatusCode, string(b))
-}
-
 func Handler(w http.ResponseWriter, r *http.Request) {
 	//go Rule()
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.GET("/api/hello", Hello)
-	e.POST("/api/green", Green)
 
 	e.ServeHTTP(w, r)
 }
