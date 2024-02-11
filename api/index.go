@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	crypto_rand "crypto/rand"
@@ -507,12 +507,12 @@ func Hello(c echo.Context) error {
 	return c.String(http.StatusOK, "Attacked")
 }
 
-func main() {
+func Handler(w http.ResponseWriter, r *http.Request) {
 	//go Rule()
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.GET("/api/hello", Hello)
 
-	e.Start(":8080")
+	e.ServeHTTP(w, r)
 }
