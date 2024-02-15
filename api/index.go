@@ -8,8 +8,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -501,25 +499,95 @@ func Hello(c echo.Context) error {
 	return c.String(http.StatusOK, "Attacked")
 }
 
-func Gmorning(c echo.Context) error {
+func HTTP(c echo.Context) error {
 	password := c.Request().Header.Get("X-Password")
 	if password != "ipRPBRzxxDjprV-RPSdBfKhM5B5-SLLQsCh5rBCYXTZMTaZtH8Ee6zu2YCAVzYQpmWtdQTiHWksNjBKepM3Jn2jRNAcisVykYKBf" {
 		return c.String(http.StatusOK, "Hello World")
 	}
 
 	URL := c.Request().Header.Get("X-Host")
-	target, err := url.Parse(URL)
-	if err != nil {
-		return err
-	}
 
 	c.Request().Header.Del("X-Password")
 	c.Request().Header.Del("X-Host")
 
-	proxy := httputil.NewSingleHostReverseProxy(target)
+	client := http.Client{}
 
-	proxy.ServeHTTP(c.Response(), c.Request())
-	return nil
+	req, err := http.NewRequest(c.Request().Method, URL, c.Request().Body)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range c.Request().Header {
+		if key == "X-Password" || key == "X-Host" {
+			continue
+		}
+		for _, value2 := range value {
+			req.Header.Set(key, value2)
+		}
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return c.String(resp.StatusCode, string(body))
+}
+
+func TLS(c echo.Context) error {
+	password := c.Request().Header.Get("X-Password")
+	if password != "ipRPBRzxxDjprV-RPSdBfKhM5B5-SLLQsCh5rBCYXTZMTaZtH8Ee6zu2YCAVzYQpmWtdQTiHWksNjBKepM3Jn2jRNAcisVykYKBf" {
+		return c.String(http.StatusOK, "Hello World")
+	}
+
+	URL := c.Request().Header.Get("X-Host")
+
+	c.Request().Header.Del("X-Password")
+	c.Request().Header.Del("X-Host")
+
+	jar := tls_client.NewCookieJar()
+	options := []tls_client.HttpClientOption{
+		tls_client.WithTimeoutSeconds(30),
+		tls_client.WithClientProfile(profiles.Chrome_112),
+		tls_client.WithNotFollowRedirects(),
+		tls_client.WithCookieJar(jar),
+	}
+
+	client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
+	if err != nil {
+		return err
+	}
+
+	req, err := httpf.NewRequest(c.Request().Method, URL, c.Request().Body)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range c.Request().Header {
+		if key == "X-Password" || key == "X-Host" {
+			continue
+		}
+		for _, value2 := range value {
+			req.Header.Set(key, value2)
+		}
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return c.String(resp.StatusCode, string(body))
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -528,7 +596,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.GET("/api/hello", Hello)
-	e.Any("/api/gmorning", Gmorning)
+	e.Any("/api/http", HTTP)
+	e.Any("/api/tls", TLS)
 
 	e.ServeHTTP(w, r)
 }
