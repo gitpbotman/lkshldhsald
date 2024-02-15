@@ -20,8 +20,6 @@ import (
 	"github.com/bogdanfinn/tls-client/profiles"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
 )
 
 var (
@@ -168,41 +166,51 @@ func ICMP(Host, Code string, Thread int, wgs *sync.WaitGroup) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			dstAddr, err := net.ResolveIPAddr("ip4", Host)
-			if err != nil {
-				fmt.Println(err)
-				return
+			icmpPacket := []byte{
+				8, 0,
+				0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
 			}
 
-			c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			defer c.Close()
+			checksum := calculateChecksum(icmpPacket)
+			icmpPacket[2] = byte(checksum >> 8)
+			icmpPacket[3] = byte(checksum & 255)
 
-			msg := icmp.Message{
-				Type: ipv4.ICMPTypeEcho,
-				Code: 0,
-				Body: &icmp.Echo{
-					ID:   os.Getpid() & 0xffff,
-					Seq:  1,
-					Data: []byte(Code),
-				},
-			}
-			msgBytes, err := msg.Marshal(nil)
+			conn, err := net.Dial("ip4:icmp", Host)
 			if err != nil {
-				fmt.Println(err)
-				return
+				conn, err = net.Dial("ip6:ipv6-icmp", Host)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
 			}
+			defer conn.Close()
 
-			if _, err := c.WriteTo(msgBytes, dstAddr); err != nil {
+			if _, err := conn.Write(icmpPacket); err != nil {
 				fmt.Println(err)
 				return
 			}
 		}()
 	}
 	wg.Wait()
+}
+
+func calculateChecksum(packet []byte) uint16 {
+	var sum uint32
+
+	for i := 0; i < len(packet)-1; i += 2 {
+		sum += uint32(packet[i+1])<<8 | uint32(packet[i])
+	}
+
+	if len(packet)%2 == 1 {
+		sum += uint32(packet[len(packet)-1])
+	}
+
+	sum = (sum >> 16) + (sum & 0xffff)
+	sum += sum >> 16
+
+	return uint16(^sum)
 }
 
 func UDP(Host string, Thread int, wgs *sync.WaitGroup) {
