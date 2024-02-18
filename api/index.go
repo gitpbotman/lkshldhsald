@@ -2,6 +2,7 @@ package handler
 
 import (
 	crypto_rand "crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -288,7 +289,12 @@ func TCP(Host, Code string, Thread int, wgs *sync.WaitGroup) {
 				fmt.Println(err)
 				return
 			}
-			conn.Write([]byte(Code))
+			decodedBytes, err := base64.StdEncoding.DecodeString(Code)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			conn.Write([]byte(decodedBytes))
 			conn.Close()
 		}()
 	}
